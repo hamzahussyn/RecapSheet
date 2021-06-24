@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc</title>
+    <style>
+        table,
+        th,
+        td,
+        tr {
+            border-collapse: collapse;
+            border: 1px solid #8a8a8a;
+        }
+
+        a:visited {
+            color: blue;
+        }
+
+        .col {
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .hdr {
+            text-align: right;
+        }
+    </style>
+
+    <script type="text/javascript" src="/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript">
+        var heads;
+        var grades;
+        var marksArray;
+        $(document).ready(function () {
+            getData();
+            getGrades();
+            getHeadsEdit();
+
+            $('body').on('click', 'a.std', function () {
+                $('#edit').find('#editData > tbody').empty();
+                $('#edit').find('#editData > tbody').empty();
+                $('#edit').find('#editData > tfoot').empty();
+                $('td.EditReg').empty();
+                $('td.EditName').empty();
+
+                $('td.EditReg').append($(this).attr('regno'));
+                $('td.EditName').append($(this).attr('name'));
+
+                getHeadsEdit();
+                getStudentMarks($(this).attr('regno'));
+                let data = '';
+                let data2 = '';
+
+                for (let i = 0; i < 8; i++) {
+                    data += ` <tr id="rowEditData">
+                        <td>${i + 1}</td>
+                        <th class="hdr headEdit">${heads[i].headname}</th>
+                        <td>${heads[i].total}</td>
+                        <td> <input type="text" class="txt" value="${marksArray[i].marks}" size="2"> </td>
+                        <td style="display: none;">${marksArray[i].marks}</td>
+                    </tr>`
+                }
+                let Total = 0;
+                let grade = '';
+                for (let j = 0; j < marksArray.length; j++) { Total += marksArray[j].marks; }
+
+                data2 += `<tr > <th>Total</th>  <td>${Total}</td> </tr>`;
+                data2 += `<tr> <th>100%</th>  <td>${Math.ceil(Total)}</td></tr>`;
+                for (let i = 0; i < grades.length; i++) {
+                    if (Math.ceil(Total) >= grades[i].start && Math.ceil(Total) <= grades[i].end) {
+                        grade = grades[i].grade;
+                    }
+                }
+                data2 += `<tr> <th>Grade</th>  <td>${grade}</td></tr>`;
+                $('#edit').find('#editData > tbody').append(data);
+                $('#edit').find('#editData > tfoot').append(data2);
+
+                heads = [];
+            })
+
+
+            $('body').on('focusout', '.txt', function () {
+                $("div.error").empty()
+                let row = $(this).parent().parent().children();
+                let total = Number($(row).eq(2).text());
+                let prev = Number($(row).eq(4).text());
+                Number($(row).eq(0).text())
+                if ($(this).val() > total || $(this).val() < 0) {
+                    let x = Number($(row).eq(0).text());
+                    $('div.error').text(`In ${heads[x - 1].headname} range should be in between 0 and ${heads[x - 1].total}`);
+                    $(this).val(prev);
+                    $(this).focus();
+                }
+                else {
+                    if ($(this).val() != prev) {
+                        //$(this).focusout();
+                        regno = $('td.EditReg').text();
+                        hid = Number($(row).eq(0).text());
+                        marks = Number($(this).val());
+                        updateMarks(regno, hid, marks);
+                        $('#data > table > thead > tr >th.tt').empty();
+                        $('#data > table > tbody').empty();
+                        //getHeads();
+                        getData();
+
+                        //marksArray = [];
+                        getStudentMarks(regno);
+                        let data2;
+                        let Total = 0;
+                        let grade = '';
+                        for (let j = 0; j < marksArray.length; j++) { Total += marksArray[j].marks; }
+
+                        data2 += `<tr > <th>Total</th>  <td>${Total}</td> </tr>`;
+                        data2 += `<tr> <th>100%</th>  <td>${Math.ceil(Total)}</td></tr>`;
+                        for (let i = 0; i < grades.length; i++) {
+                            if (Math.ceil(Total) >= grades[i].start && Math.ceil(Total) <= grades[i].end) {
+                                grade = grades[i].grade;
+                            }
+                        }
+                        data2 += `<tr> <th>Grade</th>  <td>${grade}</td></tr>`;
+                        //$('#edit').find('#editData > tbody').append(data);
+                        //$('#edit').find('#editData > tfoot').append(data2);
+
+
+                    }
+                }
+
+            })
+
+            // $('body').on('change', '.txt', function () {
+            //     $('#data > table > thead > tr').children().empty();
+            //     $('#data > table > tbody').empty();
+            //     getHeads();
+            //     getData();
+            // })
+        })
+
+        const getData = () => {
+            getHeads();
+            $.ajax({
+                url: `/api/students/all`
+            })
+                .then(s => {
+                    let total;
+                    let tr;
+                    let grade;
+
+                    for (let i = 1; i <= s.length; ++i) {
+
+                        total = 0;
+                        for (let j = 0; j < 8; j++) { total += s[i - 1].score[j].marks; }
+
+                        for (let i = 0; i < grades.length; i++) {
+                            if (Math.ceil(total) >= grades[i].start && Math.ceil(total) <= grades[i].end) {
+                                grade = grades[i].grade;
+                            }
+                        }
+
+                        s[i - 1].score.sort(compare);
+
+                        tr = `
+                            <tr regno="${s[i - 1].regno}">
+                            <td>${i}</td>
+                            <td reg="${s[i - 1].regno}">${s[i - 1].regno}</td>
+                            <td><a href="#" class="std" regno="${s[i - 1].regno}" name="${s[i - 1].name}">${s[i - 1].name}</a></td>
+                            <td hid="1">${s[i - 1].score[0].marks}</td>
+                            <td hid="2">${s[i - 1].score[1].marks}</td>
+                            <td hid="3">${s[i - 1].score[2].marks}</td>
+                            <td hid="4">${s[i - 1].score[3].marks}</td>
+                            <td hid="5">${s[i - 1].score[4].marks}</td>
+                            <td hid="6">${s[i - 1].score[5].marks}</td>
+                            <td hid="7">${s[i - 1].score[6].marks}</td>
+                            <td hid="8">${s[i - 1].score[7].marks}</td>
+                            <td>${total}</td>
+                            <td class="total">${Math.ceil(total)}</td>
+                            <td class="grade">${grade}</td>
+                            </tr>
+                            `
+                        $('#data>table>tbody').append(tr);
+                        grade = [];
+                    }
+                })
+        }
+
+        const getHeads = () => {
+
+            $.ajax({
+                url: `/api/heads/all`
+            })
+                .then(h => {
+                    for (let i = 0; i < h.length; ++i) {
+                        $('#data>table>thead>tr').children().eq(i + 3).append(h[i].headname);
+                    }
+                })
+        }
+
+        const getHeadsEdit = () => {
+            //heads = [];
+            $.ajax({
+                url: `/api/heads/all`
+            })
+                .then(h => {
+                    heads = h;
+                    console.log(heads);
+                })
+        }
+
+        const getGrades = () => {
+            //grades = [];
+            $.ajax({
+                url: `/api/grades/all`
+            })
+                .then(g => {
+                    grades = g;
+                    console.log(grades);
+                })
+        }
+
+        const getStudentMarks = (regno) => {
+            $.ajax({
+                url: `/api/marks/${regno}`
+            })
+                .then(m => {
+                    marksArray = m;
+                    console.log(marksArray);
+                })
+        }
+
+        const updateMarks = (regno, hid, marks) => {
+            $.ajax({
+                url: `/api/marks/updatemarks`,
+                method: 'POST',
+                data: { regno, hid, marks }
+            }).then()
+        }
+
+        function compare(a, b) {
+            const hidA = a.hid;
+            const hidB = b.hid;
+
+            let comparison = 0;
+            if (hidA > hidB) {
+                comparison = 1;
+            } else if (hidA < hidB) {
+                comparison = -1;
+            }
+            return comparison;
+        }
+    </script>
+</head>
+
+<body>
+    <h1>@model.title</h1>
+    <div id="data" class="col">
+        <table>
+            <thead>
+                <tr class="data-header">
+                    <th>S #</th>
+                    <th>Reg. No.</th>
+                    <th>Name</th>
+                    <th class="tt"></th>
+                    <th class="tt"></th>
+                    <th class="tt"></th>
+                    <th class="tt"></th>
+                    <th class="tt"></th>
+                    <th class="tt"></th>
+                    <th class="tt"></th>
+                    <th class="tt"></th>
+                    <th>Total</th>
+                    <th>100%</th>
+                    <th>Grade</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            </tbody>
+
+        </table>
+    </div>
+
+    <div class="col">
+        <table>
+            <tr>
+                <th class="hdr">Reg. No.</th>
+                <td class="EditReg"></td>
+            </tr>
+            <tr>
+                <th class="hdr">Name: </th>
+                <td class="EditName"></td>
+            </tr>
+        </table>
+        <div id="edit">
+            <table id="editData">
+                <thead>
+                    <th>#</th>
+                    <th>Head</th>
+                    <th>Total</th>
+                    <th>Marks</th>
+                </thead>
+                <tbody>
+
+                </tbody>
+
+                <tfoot>
+
+                </tfoot>
+            </table>
+            <div class="error" style="color: red;"></div>
+        </div>
+    </div>
+
+</body>
+
+</html>
